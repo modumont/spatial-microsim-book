@@ -36,7 +36,7 @@ load("cache-data-prep.RData")
 How representative each individual is of each zone is determined by their
 *weight* for that zone. If we have `nrow(cons)` zones and `nrow(ind)`
 individuals (3 and 5, respectively, in SimpleWorld) we will create
-15 weights. To start, we create a matrix of ones. Thus every
+`nrow(cons)*nrow(ind)` weights (15 in SimpleWorld). To start, we create a matrix of ones. Thus every
 individual has an equal initial weight, ready to be updated
 with numbers calculated through the IPF procedure:
 
@@ -45,7 +45,32 @@ weights <- matrix(data = 1, nrow = nrow(ind), ncol = nrow(cons))
 dim(weights) # dimension of weight matrix: 5 rows by 3 columns
 ```
 
-## IPF in R {#IpfinR}
+## Different kinds of microsimulation {#KindMS}
+
+There are a wide range of possible methods to proceed to a spatial microsimulation. As with the majority of statistical 
+analyses, there are *deterministic* methods, characterized by the fact that it is completely determine, so no random
+or probabilistic numbers are used. In the other side, some *stochastic* methods consist in selecting a random number 
+in a specific distribution. For example, if we had no information about the zone's distribution but just the 
+total number of inhabitant in the zone, we could consider that
+the distribution of the sample is the distribution of the whole population. So, each individual will be chosen 
+randomly inside the individual in the sample. In this case, the distribution of the whole population will be
+asymptotically the one of the sample. 
+
+With stochastic methods, the intervention of a random function involves that executing two times the same algorithm
+could result in two different solution. To avoid it, we have to fix the *seed* of the random function. However,
+with these methods, we have to really trust the random function used. Note that it is impossible for a computer to
+effectively choose randomly a number, so there are existing algorithm to have *pseudo-random numbers*. The quality
+of this function has to be taken into account when proceeding to this kind of spatial microsimulation.
+
+The *reweighting* methods consists in adding a weight to each individual for the zone. This method is good if we have 
+a representative sample of the zone and the minority of the population is included in it. In contrary, if we have in
+the individual level only the majority of the population and for example, we have not an old man still working, this
+kind of individual will not appear in the final data. A proposal to avoid this is to use a *genetic algorithm* or something
+similar, that will allow to mix some individual to create a new one (mutation). We do not know for the moment
+if this solution has already been developed, it is just a proposition and to inform the reader that new process can
+still appear in the future.
+
+## A reweighting method : IPF in theory {#IpfinTh}
 
 The most widely used and mature *deterministic* method to allocate individuals
 to zones
@@ -57,7 +82,47 @@ This is *reweighting*.
 Regardless of implementation method,
 IPF can be used to allocate individuals to zones through the calculation
 of *maximum likelihood* values for each zone-individual combination represented
-in the wieght matrix.
+in the weight matrix.
+
+```{r, echo=FALSE}
+#(Dumont,2014) I am not sure it is really the maximum of likelihood... Perhaps the maximisation of entropy no?
+# I am not sure that these to concepts are similar, I have to think about it ^^
+```
+
+
+Such as with the example of SimpleWorld,, in each application, we will have a matrix 'ind' containing the 
+categorical value of each individual. So, it is a two dimensional matrix which rows are one individual and 
+each column a variable. The value of the cell 'ind(i,j)' is the category of the individual 'i' for the
+variable 'j'. Then, we always have a second matrix containing the constraint 'cons' that we can, for the theory purpose,
+express with 3 dimensions. Indeed, 'consTheory(i,j,k)' will be the constraint corresponding to the marginal 
+for the zone 'i', in the variable 'j' and category 'k'. For example, 'i' could be a municipality, 'j' the gender and
+'k' the female. So, element '(i,j,k)' is the total number of woman in this municipality according to the constraint data.
+
+The IPF algorithm will proceed zone per zone. For each zone, each individual will have a weight of representativity of the
+zone. The weights matrix will then have the dimension 'number of individual x number of zone'. So, 'weight(i,j)' corresponds
+to the weight of the individual 'i' in the zone 'j'. For the zone 'z', we will adapt the weight matrix to
+each constraint 'c'.This matrix is initialized with a full matrix of 1 and then, for each step 't',
+the formula can be expressed as:
+
+```{r, echo=FALSE}
+#(Dumont,2014) Sorry, I didn't manage to write it in a pretty way with a real fraction and sum...
+```
+
+$$ weight(i,z,t+1)=weight(i,z,t)*consTheory(z,c,ind(i,c))/ \sum_{j=1}^#indiv weights(j,z,t) * I(ind(j,c)==ind(i,c))$$
+
+where the 'I(x)' function is the indicator function which value is 1 if x is true and 0 otherwise. We can see that 
+'ind(i,c)' is the category of the individual 'i' for the variable 'c'. So, the denominator corresponds to the
+sum of the actual weights of all individuals having the same category in this variable as 'i'. We simply redistribue the 
+weights so that the data follows the constraint concerning this variable.
+
+```{r, echo=FALSE}
+#(Dumont,2014) I wanted to put here the answer for the example, I have it on my paper, but I didn't manage to
+# install git with RStudio and don't know how to remember the cons and ind here, and apply the formula to 
+# fix theoritically the weight for the first iteration and then we will verify that the R code fit to the theory
+```
+
+## A reweighting method : IPF in R {#IpfinR}
+
 In the subsequent examples, we use IPF to allocate individuals to zones
 in SimpleWorld, using the data loaded in
 the previous chapter as a basis. IPF is mature,
@@ -66,7 +131,6 @@ Interested readers are directed towards recent papers (e.g.
 Lovelace and Ballas, 2012;
 Pritchard and Miller,2012)
 for more detail on the method.
-
 
 The IPF algorithm can be written in
 R from scratch, as illustrated in Lovelace (2014), and as taught in the
